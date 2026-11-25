@@ -3,18 +3,19 @@ import QuantumOperators as QOps
 import QuantumTimeEvolution as QTime
 import QuantumToolbox as QBox
 using Plots
+using SparseArrays
 
 # Exact diagonalization solves the time-evolution by calculating the time-evolution operator U(dt) = exp(-i H dt) and applying it.
 # It is suitable for small systems, since calculating the exp(-i H dt) involves diagonalizing the Hamiltonian, which scales poorly with system size (even though it is done only once in start).
 
 function three_transmons()
-    d = 2 # dimension of each transmon
+    d = 2 # dimension of each transmon  # you can also do more inside the function, for example you can add a random measurement effect to the trajectories.
     L = 3 # number of transmons
 
     w = 1000 # frequency of each transmon, you should think these are in the units of J, w/J etc.
     U = 40 # anharmonicity of each transmon
     J = 1 # coupling between transmons
-
+  # you can also do more inside the function, for example you can add a random measurement effect to the trajectories.
     t = 10 # total time of evolution
     dt = 0.1 # time step of evolution
 
@@ -158,15 +159,193 @@ end
 
 # These examples do the same as above, but solve the problem in total excitation number N_tot subspaces.
 function three_transmons_subspace()
+    d = 2
+    L = 3
+
+    w = 1000
+    U = 40
+    J = 1
+
+    t = 10
+    dt = 0.1
+
+    # gives you the indices of basis states in different subspaces, e.g. indices[1] = [1]
+    # since the first subspace is N_tot = 0, which has only one basis state |000>.
+    # if n2_inds = indices[2], then H[n2_inds, n2_inds] gives you the Hamiltonian in the N_tot = 1 subspace.
+    indices = QOps.total_boson_number_subspace_indices(d, L)
+    # display(indices) uncomment here and check
+
+    initial_state = QStates.productstate(d, [1,0,0]) # |100>
+    initial_id = QOps.find_subspace(initial_state, indices) # finds the subspace id of the initial state
+    H = QOps.bosehubbard(d, L; w=w, U=U, J=J) # Bose-Hubbard Hamiltonian for 3 transmons
+
+    # note that with this approach I build the full Hamiltonian, then split it. It would be more efficient to build
+    # the Hamiltonian directly in the subspaces, but in my simulations it was not the bottleneck, and with the 
+    # krylov you avoid it anyway. There was an implementation of building it only in the subspace from a previous
+    # group member, but there was some issue with it, I think it didn't scale well either when going to large systems.
+    # Anyways, if building the Hamiltonian is a problem, consider looking into how to build it directly in the subspace.
+    U_op = exp(-im * dt * Matrix(H))
+
+    # initial_state represented in all the subpaces. initial_state[initial_id] gives the state in the correct subspace.
+    # So it is a list of states. It uses more memory than necessary, but avoids reallocating memory if changing subspaces.
+    initial_state = QOps.subspace_split(initial_state, indices)
+    U_op = QOps.subspace_split(U_op, indices) # U_op is now a list of operators, one for each subspace. U_op[initial_id] gives the operator in the correct subspace.
+
+    n1 = QOps.subspace_split(QOps.singlesite_n(d, L, 1), indices) # n * I * I
+    ntot = QOps.subspace_split(QOps.nall(d, L), indices)
+    observables = [(state, id) -> QOps.expval(state[id], n1[id]), (state, id) -> QOps.expval(state[id], ntot[id])] # note the arguments now contain the subspace id.
+
+    time_evolution = QTime.exactevolve(initial_state, initial_id, U_op, dt, t, observables...) # note initial_id argument.
+
+    pl = plot(0:dt:t, time_evolution[1, :], label="n1", xlabel="time", ylabel="expectation value")
+    plot!(0:dt:t, time_evolution[2, :], label="ntot", xlabel="time", ylabel="expectation value")
+    display(pl)
 end
 
 function three_transmons_measured_subspace()
+    d = 2
+    L = 3
+
+    indices = QOps.total_boson_number_subspace_indices(d, L)
+    ranges, perm_mat = QOps.total_boson_number_subspace_tools(d, L) # these give tools some functions need for the subspace representation.
+
+    w = 1000 
+    U = 40
+    J = 1
+
+    t = 10
+    dt = 0.1
+    
+    msr_prob = 0.1
+    op_to_measure = QOps.nop(d)
+    msr_ops = QOps.measurementoperators(op_to_measure, L)
+
+    msr_ops_sb = QOps.measurement_subspace(msr_ops, ranges, perm_mat) # measurement operators in the subspaces
+    meffect!(state, id) = QTime.random_measurement!(state, id, msr_ops_sb, msr_prob) # note how now the effect has two arguments, state and subspace id.
+
+    initial_state = QStates.productstate(d, [1,0,0]) # |100>
+    initial_id = QOps.find_subspace(initial_state, indices) # finds the subspace of the initial state
+    H = QOps.bosehubbard(d, L; w=w, U=U, J=J)
+    U_op = exp(-im * dt * Matrix(H))
+
+
+    initial_state = QOps.subspace_split(initial_state, indices)
+    U_op = QOps.subspace_split(U_op, indices) # U_op is now a list of operators, one for each subspace. U_op[initial_id] gives the operator in the correct subspace.
+
+    n1 = QOps.subspace_split(QOps.singlesite_n(d, L, 1), indices) # n * I * I
+    ntot = QOps.subspace_split(QOps.nall(d, L), indices)
+    observables = [(state, id) -> QOps.expval(state[id], n1[id]), (state, id) -> QOps.expval(state[id], ntot[id])] # note the arguments now contain the subspace id.
+
+    time_evolution = QTime.exactevolve(initial_state, initial_id, U_op, dt, t, observables...; effect! = meffect!) # note initial_id argument.
+    # display(time_evolution) 
+    # The output is 2x101 matrix, where [1, :] gives you the n1 values, and [2, :] gives you the ntot values at each time step. The time steps are given by 0:dt:t.
+
+    pl = plot(0:dt:t, time_evolution[1, :], label="n1", xlabel="time", ylabel="expectation value")
+    plot!(0:dt:t, time_evolution[2, :], label="ntot", xlabel="time", ylabel="expectation value")
+    display(pl)
 end
 
 function three_transmons_open_subspace()
+    # I did not write a way to do the open systems in the subspaces with
+    # the exact diagonalization. For krylov it is done. If you need it, 
+    # I think you can take example from the krylov implementation in
+    # QuantumTimeEvolution.jl -> src/KrylovSubspaceDissipationDecoherence.jl
+    d = 2
+    L = 3
+
+    indices = QOps.total_boson_number_subspace_indices(d, L)
+    ranges, perm_mat = QOps.total_boson_number_subspace_tools(d, L) 
+
+    w = 1000
+    U = 40
+    J = 1
+    diss = 1 # dissipation rate
+    deco = 1 # dephasing rate
+    n_traj = 100 # number of trajectories to average over
+
+    t = 10
+    dt = 0.1
+
+    initial_state = QStates.productstate(d, [1,0,0]) # |100>
+    initial_id = QOps.find_subspace(initial_state, indices) # finds the subspace of the initial state
+    initial_state = QOps.subspace_split(initial_state, indices)
+    
+    # linblad operators for the system, now dissipation and decoherence operators are separated!
+    diss_op = [sqrt(diss) * QOps.singlesite_a(d, L, i) for i in 1:L]
+    deco_op = [sqrt(deco) * QOps.singlesite_n(d, L, i) for i in 1:L]
+    # Only the non-hermitian part!
+    H_dd = complex(spzeros(d^L, d^L)) 
+    for op in vcat(diss_op, deco_op)
+        H_dd .+= -1.0im / 2 * op' * op
+    end
+    H = QOps.bosehubbard(d, L; w=w, U=U, J=J)
+    H .+= H_dd
+
+    U_op = exp(-im * dt * Matrix(H))
+    time_evolve_op = QOps.subspace_split(U_op, ranges, perm_mat) # You can use indices or ranges, perm_mat, but I think with ranges its more efficient.
+    
+    # These a_relations are used to tell how the dissipation operator (annihilation a) affects the subspace.
+    # They of course reduce the total boson number, changing the subspace from one above to one below, so
+    # e.g. the subspace with id = 3 -> id = 2.
+    # hence a_relations = [0, -1, -1, -1...] since the first subspace is N_tot = 0.
+    a_relations = [-1 for _ in eachindex(ranges)]
+    a_relations[1] = 0
+    diss_op = [QOps.subspace_split(op, ranges, perm_mat, a_relations) for op in diss_op]
+    deco_op = [QOps.subspace_split(op, ranges, perm_mat) for op in deco_op]
+    
+    n1 = QOps.subspace_split(QOps.singlesite_n(d, L, 1), indices) # n * I * I
+    ntot = QOps.subspace_split(QOps.nall(d, L), indices)
+    observables = [(state, id) -> QOps.expval(state[id], n1[id]), (state, id) -> QOps.expval(state[id], ntot[id])] # note the arguments now contain the subspace id.
+
+    function solve_single_trajectory()
+        QTime.exactevolve(initial_state, initial_id, time_evolve_op, diss_op, deco_op, dt, t, observables...)
+    end
+    result = QTime.solvetrajectories(solve_single_trajectory, n_traj; paral = :threads) # solves n_traj trajectories in parallel using threads, can also use paral = :none
+    result = traj_mean(result) # average over trajectories
+
+    pl = plot(0:dt:t, result[1, :], label="n1", xlabel="time", ylabel="expectation value")
+    plot!(0:dt:t, result[2, :], label="ntot", xlabel="time", ylabel="expectation value")
+    display(pl)
 end
 
 function three_transmons_disordered_subspace()
+    d = 2
+    L = 3
+
+    indices = QOps.total_boson_number_subspace_indices(d, L)
+    ranges, perm_mat = QOps.total_boson_number_subspace_tools(d, L) 
+
+    w = 1000
+    dw = 10 # disorder strength, the disorder is generated as w_i = w + [-dw, dw]
+    U = 40
+    J = 1
+    n_traj = 1000 # number of trajectories to average over
+
+    t = 10
+    dt = 0.1
+
+    initial_state = QStates.productstate(d, [1,0,0]) # |100>
+    initial_id = QOps.find_subspace(initial_state, indices) # finds the subspace of the initial state
+    initial_state = QOps.subspace_split(initial_state, indices)
+    
+    n1 = QOps.subspace_split(QOps.singlesite_n(d, L, 1), indices) # n * I * I
+    ntot = QOps.subspace_split(QOps.nall(d, L), indices)
+    observables = [(state, id) -> QOps.expval(state[id], n1[id]), (state, id) -> QOps.expval(state[id], ntot[id])] # note the arguments now contain the subspace id.
+
+    # in each trajectory we need to generate a new disordered Hamiltonian, so we do that inside the function.
+    function solve_single_trajectory()
+        w = (2 .* rand(L) .- 1) * dw .+ w # random disorder, w_i = w + [-dw, dw]
+        H = QOps.bosehubbard(d, L; w=w, U=U, J=J) # note that now w is a vector, and the function can handle that.
+        time_evolve_op = exp(-im * dt * Matrix(H))
+        time_evolve_op = QOps.subspace_split(time_evolve_op, ranges, perm_mat) # You can use indices or ranges, perm_mat, but I think with ranges its more efficient.
+        QTime.exactevolve(initial_state, initial_id, time_evolve_op, dt, t, observables...)
+    end
+    result = QTime.solvetrajectories(solve_single_trajectory, n_traj; paral = :threads) # solves n_traj trajectories in parallel using threads, can also use paral = :none
+    result = traj_mean(result) # average over trajectories
+
+    pl = plot(0:dt:t, result[1, :], label="n1", xlabel="time", ylabel="expectation value")
+    plot!(0:dt:t, result[2, :], label="ntot", xlabel="time", ylabel="expectation value")
+    display(pl)
 end
 
-three_transmons_disordered()
+three_transmons_disordered_subspace()

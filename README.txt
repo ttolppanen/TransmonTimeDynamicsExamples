@@ -32,3 +32,8 @@ very usefull since you often need to save the data while making the plots.
 NOTE THAT I USED JULIA VERSION 1.11.6 (or older) WHEN MAKING THESE PACKAGES. They should 
 work fine, but if you run into issues, consider installing an older version of julia.
 Also, I strongly recommend using Visual Studio Code.
+
+I want to to highlight that I feel like the implementation here for calculating the Bose-Hubbard Hamiltonian
+is efficient, so consider using that or taking some inspiration if you run into problems with scaling that for
+large systems in your implementation. The main trick that I found useful was to use the sparse matrix contructors.
+This together with Olli's implemenation where you only loop through the basis states once.
