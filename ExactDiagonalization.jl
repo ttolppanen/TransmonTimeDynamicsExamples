@@ -9,13 +9,13 @@ using SparseArrays
 # It is suitable for small systems, since calculating the exp(-i H dt) involves diagonalizing the Hamiltonian, which scales poorly with system size (even though it is done only once in start).
 
 function three_transmons()
-    d = 2 # dimension of each transmon  # you can also do more inside the function, for example you can add a random measurement effect to the trajectories.
+    d = 2 # dimension of each transmon 
     L = 3 # number of transmons
 
     w = 1000 # frequency of each transmon, you should think these are in the units of J, w/J etc.
     U = 40 # anharmonicity of each transmon
     J = 1 # coupling between transmons
-  # you can also do more inside the function, for example you can add a random measurement effect to the trajectories.
+
     t = 10 # total time of evolution
     dt = 0.1 # time step of evolution
 
@@ -250,62 +250,6 @@ function three_transmons_open_subspace()
     # the exact diagonalization. For krylov it is done. If you need it, 
     # I think you can take example from the krylov implementation in
     # QuantumTimeEvolution.jl -> src/KrylovSubspaceDissipationDecoherence.jl
-    d = 2
-    L = 3
-
-    indices = QOps.total_boson_number_subspace_indices(d, L)
-    ranges, perm_mat = QOps.total_boson_number_subspace_tools(d, L) 
-
-    w = 1000
-    U = 40
-    J = 1
-    diss = 1 # dissipation rate
-    deco = 1 # dephasing rate
-    n_traj = 100 # number of trajectories to average over
-
-    t = 10
-    dt = 0.1
-
-    initial_state = QStates.productstate(d, [1,0,0]) # |100>
-    initial_id = QOps.find_subspace(initial_state, indices) # finds the subspace of the initial state
-    initial_state = QOps.subspace_split(initial_state, indices)
-    
-    # linblad operators for the system, now dissipation and decoherence operators are separated!
-    diss_op = [sqrt(diss) * QOps.singlesite_a(d, L, i) for i in 1:L]
-    deco_op = [sqrt(deco) * QOps.singlesite_n(d, L, i) for i in 1:L]
-    # Only the non-hermitian part!
-    H_dd = complex(spzeros(d^L, d^L)) 
-    for op in vcat(diss_op, deco_op)
-        H_dd .+= -1.0im / 2 * op' * op
-    end
-    H = QOps.bosehubbard(d, L; w=w, U=U, J=J)
-    H .+= H_dd
-
-    U_op = exp(-im * dt * Matrix(H))
-    time_evolve_op = QOps.subspace_split(U_op, ranges, perm_mat) # You can use indices or ranges, perm_mat, but I think with ranges its more efficient.
-    
-    # These a_relations are used to tell how the dissipation operator (annihilation a) affects the subspace.
-    # They of course reduce the total boson number, changing the subspace from one above to one below, so
-    # e.g. the subspace with id = 3 -> id = 2.
-    # hence a_relations = [0, -1, -1, -1...] since the first subspace is N_tot = 0.
-    a_relations = [-1 for _ in eachindex(ranges)]
-    a_relations[1] = 0
-    diss_op = [QOps.subspace_split(op, ranges, perm_mat, a_relations) for op in diss_op]
-    deco_op = [QOps.subspace_split(op, ranges, perm_mat) for op in deco_op]
-    
-    n1 = QOps.subspace_split(QOps.singlesite_n(d, L, 1), indices) # n * I * I
-    ntot = QOps.subspace_split(QOps.nall(d, L), indices)
-    observables = [(state, id) -> QOps.expval(state[id], n1[id]), (state, id) -> QOps.expval(state[id], ntot[id])] # note the arguments now contain the subspace id.
-
-    function solve_single_trajectory()
-        QTime.exactevolve(initial_state, initial_id, time_evolve_op, diss_op, deco_op, dt, t, observables...)
-    end
-    result = QTime.solvetrajectories(solve_single_trajectory, n_traj; paral = :threads) # solves n_traj trajectories in parallel using threads, can also use paral = :none
-    result = traj_mean(result) # average over trajectories
-
-    pl = plot(0:dt:t, result[1, :], label="n1", xlabel="time", ylabel="expectation value")
-    plot!(0:dt:t, result[2, :], label="ntot", xlabel="time", ylabel="expectation value")
-    display(pl)
 end
 
 function three_transmons_disordered_subspace()
@@ -348,4 +292,11 @@ function three_transmons_disordered_subspace()
     display(pl)
 end
 
-three_transmons_disordered_subspace()
+three_transmons()
+# three_transmons_measured()
+# three_transmons_open()
+# three_transmons_disordered()
+# three_transmons_subspace()
+# three_transmons_measured_subspace()
+# three_transmons_open_subspace()
+# three_transmons_disordered_subspace()
