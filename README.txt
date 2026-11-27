@@ -1,4 +1,5 @@
 Contact information: taneli.tolppanen@gmail.com
+Info about the code I used in my projects is at the bottom.
 
 These codes use my custom packages, which can be installed from my registry.
 To add the custom registry, in julia REPL use ] to go to the package manager mode (PKG), and type 
@@ -37,3 +38,22 @@ I want to to highlight that I feel like the implementation here for calculating 
 is efficient, so consider using that or taking some inspiration if you run into problems with scaling that for
 large systems in your implementation. The main trick that I found useful was to use the sparse matrix contructors.
 This together with Olli's implemenation where you only loop through the basis states once.
+
+---ABOUT PROJECT CODE---
+More code related to Paper I measurement induced phase transitions
+https://github.com/ttolppanen/Measurement-Induced-Phase-Transition-in-Transmons
+
+For Paper II transmon array based leakage reduction unit (LRU)
+https://github.com/ttolppanen/TestingStuff
+Here the relevant code can be found from
+TestingStuff/Physics/LeakageRemovalUnit/PlotsForPaper
+
+For Paper III leakage in tunable couplers
+https://github.com/ttolppanen/LRUFollowUpPaper
+Here the relevant code can be found from
+LRUFollowUpPaper/LocalPackages
+LRUFollowUpPaper/LRUFUP_Vault/Data/0PAPER
+and in 0PAPER:
+LeakageHopping200 and LeakageHopping201 relate to paper plots Fig.3 a-d and e-h respectively.
+LeakageTunneling to Fig. 4.
+LRUComparison has code for simulating the LRUs we studied in the paper. 

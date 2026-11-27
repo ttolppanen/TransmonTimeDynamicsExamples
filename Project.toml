@@ -1,5 +1,7 @@
 [deps]
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+PlotAndSave = "17f9de49-761f-4084-9189-3237cc0765fb"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 QuantumOperators = "c0e07f3f-1bc3-43ad-95cf-312e5bf06829"
 QuantumStates = "0a1581c1-ab82-4660-a1be-26f7b3483457"

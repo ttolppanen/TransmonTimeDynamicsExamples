@@ -66,6 +66,10 @@ function three_transmons_measured()
     ntot = QOps.nall(d, L)
     observables = [state -> QOps.expval(state, n1), state -> QOps.expval(state, ntot)]
 
+    # the measurements are passed as a function with one argument, the state. This is the effect! keyword argument
+    # You can pass also your own function, as long as it takes a single argument, the state.
+    # You can also pass many functions, or effects, if you wrap them in a single function,
+    # i.e. function effect!(state) = func1(state); func2(state); etc. end
     time_evolution = QTime.exactevolve(initial_state, U_op, dt, t, observables...; effect! = meffect!) # exact time evolution
     # display(time_evolution) 
     # The output is 2x101 matrix, where [1, :] gives you the n1 values, and [2, :] gives you the ntot values at each time step. The time steps are given by 0:dt:t.
