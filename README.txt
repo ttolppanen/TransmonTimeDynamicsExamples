@@ -1,6 +1,9 @@
 Contact information: taneli.tolppanen@gmail.com
 Info about the code I used in my projects is at the bottom.
 
+To install julia, juliaup is convenient
+https://github.com/julialang/juliaup
+
 These codes use my custom packages, which can be installed from my registry.
 To add the custom registry, in julia REPL use ] to go to the package manager mode (PKG), and type 
 
@@ -27,17 +30,25 @@ can be more usefull examples and how to use the packages.
 There is also:
 PlotAndSave (https://github.com/ttolppanen/PlotAndSave)
 
-which saves the data along with making a simple plot for it, I found it
-very usefull since you often need to save the data while making the plots.
+which saves the data along with making a simple plot for it. I found it
+usefull since you often need to save the data while making the plots.
 
 NOTE THAT I USED JULIA VERSION 1.11.6 (or older) WHEN MAKING THESE PACKAGES. They should 
 work fine, but if you run into issues, consider installing an older version of julia.
-Also, I strongly recommend using Visual Studio Code.
+Also, I recommend using Visual Studio Code.
 
 I want to to highlight that I feel like the implementation here for calculating the Bose-Hubbard Hamiltonian
 is efficient, so consider using that or taking some inspiration if you run into problems with scaling that for
 large systems in your implementation. The main trick that I found useful was to use the sparse matrix contructors.
 This together with Olli's implemenation where you only loop through the basis states once.
+
+---ABOUT THE EXAMPLES HERE---
+This folder contains 4 example codes. ExactDiagonalization.jl and Krylov.jl both show same examples,
+how to simulate transmon arrays, disordered transmon arrays, open systems and measured systems. They
+also have the same examples done in total boson number subspaces. In Toolbox.jl there are examples for
+the QuantumToolbox (Julia QuTiP), and how to use that along with the code I have made. And in 
+PlotAndSaveExample there is an example how to use that to generate plots that show the parameters 
+in the figure along with storing the figure data.
 
 ---ABOUT PROJECT CODE---
 More code related to Paper I measurement induced phase transitions
